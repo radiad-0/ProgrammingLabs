@@ -1,0 +1,14 @@
+help
+info
+show
+add
+123
+123
+123
+123
+ROCK
+123
+123
+remove_by_id 1
+show
+history
