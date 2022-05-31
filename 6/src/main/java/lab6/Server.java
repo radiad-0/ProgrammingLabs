@@ -2,32 +2,50 @@ package lab6;
 
 import lab6.excepcions.*;
 import lab6.tools.*;
-import lab6.tools.serverIOManagers.FileManager;
-import lab6.tools.serverIOManagers.ServerInputManager;
-import lab6.tools.serverIOManagers.ServerOutputManager;
-import lab6.tools.serverIOManagers.XmlManager;
+import lab6.tools.serverIOManagers.*;
 import lab6.commands.*;
 import lab6.items.MusicBand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.xml.sax.SAXException;
-import lab6.tools.CommandParameters;
+import lab6.tools.ClientRequest;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.*;
 
+
 public class Server {
+    /**
+     * коллекция
+     */
     private HashSet<MusicBand> musicBands;
+
+    /**
+     * дата инициализации коллекции
+     */
     private Date date;
+
+    /**
+     * список последних 14-ти команд
+     */
     private LinkedList<String> history;
-    private static final int port = 3468;
+
+    /**
+     * словарь доступных команд
+     */
+    private HashMap<String, Command> commands;
+
+
     private UDPConnection udpConnection;
     private ServerInputManager inputManager;
     private ServerOutputManager outputManager;
+
+    /**
+     * управление файлом с коллекцией
+     */
     private FileManager fileManager;
-    private HashMap<String, Command> commands;
+    private static final int port = 3468;
     private static final Logger log4j2 = LogManager.getLogger();
     private boolean inRun;
 
@@ -43,7 +61,7 @@ public class Server {
             Server lab6 = new Server(fileName);
             lab6.run();
         } catch (MyException e) {
-            log4j2.warn(e.getMessage());
+            log4j2.error(e.getMessage());
         }
     }
 
@@ -57,8 +75,9 @@ public class Server {
         history = new LinkedList<>();
 
         udpConnection = new UDPConnection(port);
-        udpConnection.bindAddress();
         outputManager = new ServerOutputManager(udpConnection);
+        udpConnection.setOutputManager(outputManager);
+        udpConnection.bindAddress();
 
         commands = new HashMap<>();
 
@@ -98,34 +117,28 @@ public class Server {
      * @throws MyException ошибка сериализация {@link Serializer#serialize(Object)} или соединения {@link UDPConnection#sendData(byte[])}
      */
     public void run() throws MyException {
-        
-        CommandParameters commandParameters;
+
+        Runtime.getRuntime().addShutdownHook(new ShutdownHook(fileManager));
+
+        ConsoleThread consoleThread = new ConsoleThread(fileManager);
+        consoleThread.start();
+
+        ClientRequest clientRequest;
         Command command;
 
         while (inRun) {
             try {
-                commandParameters = inputManager.getCommandParameters();
-                log4j2.debug(commandParameters);
+                clientRequest = inputManager.getClientRequest(commands);
+                command = commands.get(clientRequest.getName());
 
-                if (!commands.containsKey(commandParameters.getName()))
-                    throw new InvalidCommandException(commandParameters.getName());
-
-                command = commands.get(commandParameters.getName());
-
-
-                if (command.getNumberOfArguments() != -1 &&
-                        commandParameters.getArguments().length != command.getNumberOfArguments())
-                    throw new InvalidArgumentException();
-
-                if (command.isNeedElementAsArgument()) {
-                    outputManager.setNeedElement();
-                    outputManager.sendServerRequestToClient();
-                    commandParameters.setElement(inputManager.getMusicBand());
+                if (command.isNeedElementAsArgument() && clientRequest.getElement() == null) {
+                    inputManager.takeElement();
+                    continue;
                 }
 
-                updateHistory(commandParameters.getName());
+                updateHistory(clientRequest.getName());
 
-                command.setParameters(commandParameters);
+                command.setParameters(clientRequest);
                 command.execute();
             } catch (MyException e) {
                 outputManager.printlnErrorToClient(e.getMessage());
@@ -137,10 +150,11 @@ public class Server {
                     continue;
                 }
 
+
                 log4j2.info("__________Клиент___завершил___работу__________");
                 history.clear();
 
-                if (e.getMessage() == null || "exit".equals(e.getMessage())){
+                if (e.getMessage() == null){
                     outputManager.setStopSignal();
                     outputManager.sendServerRequestToClient();
                 }
@@ -149,6 +163,7 @@ public class Server {
                     log4j2.debug("символ EOF");
                 }
 
+                log4j2.debug("сохранение коллекции");
                 try {
                     fileManager.saveMusicBands();
                 } catch (MyException ex) {

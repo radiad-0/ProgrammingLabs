@@ -2,7 +2,7 @@ package lab6.excepcions;
 
 public class InvalidConnectException extends MyException {
 
-    public InvalidConnectException(String errorDescription) {
-        super("проблемы с соединением", errorDescription);
+    public InvalidConnectException(String description) {
+        super("проблемы с соединением", description);
     }
 }

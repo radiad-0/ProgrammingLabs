@@ -17,7 +17,7 @@ public class RemoveLower extends Command {
 
     @Override
     public void execute() throws StopSignal, MyException {
-        MusicBand compareMusicBand = commandParameters.getElement();
+        MusicBand compareMusicBand = clientRequest.getElement();
         musicBands.removeIf(musicBand -> musicBand.compareTo(compareMusicBand) < 0);
         MusicBand.addToBufferIds(compareMusicBand.getId());
         outputManager.noAnswer();

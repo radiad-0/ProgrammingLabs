@@ -17,6 +17,7 @@ public class History extends Command {
     public void execute() throws MyException {
         outputManager.writelnToBuffer("последние " + history.size() + " команд:");
         history.forEach(h -> outputManager.writeToBuffer(h + "; "));
+        outputManager.writelnToBuffer("");
         outputManager.sendServerRequestToClient();
     }
 }

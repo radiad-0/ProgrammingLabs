@@ -1,75 +1,70 @@
 package lab6.tools.clientIOManagers;
 
-import lab6.tools.ServerRequest;
+import lab6.excepcions.MyException;
+import lab6.tools.*;
+
+import java.net.SocketAddress;
 
 /**
  * Класс, выводящий сообщения пользователю
  */
-public class ClientOutputManager {
+public class ClientOutputManager implements OutputManager {
+    private UDPConnection udpConnection;
+    SocketAddress serverAddress;
     private Boolean manualMode;
 
-    public ClientOutputManager() {
+    public ClientOutputManager(UDPConnection udpConnection, SocketAddress serverAddress) {
+        this.udpConnection = udpConnection;
+        this.serverAddress = serverAddress;
         manualMode = true;
     }
 
-    public ClientOutputManager(Boolean manualMode) {
+    public ClientOutputManager(UDPConnection udpConnection, SocketAddress serverAddress, Boolean manualMode) {
+        this.udpConnection = udpConnection;
+        this.serverAddress = serverAddress;
         this.manualMode = manualMode;
     }
 
-    private String highlightedStyle(Object message){
+    public void sendClientRequest(ClientRequest clientRequest) throws MyException {
+        udpConnection.sendData(Serializer.serialize(clientRequest), serverAddress);
+    }
+
+    public String highlightedStyle(Object message){
         return "\033[35m" + message + "\033[0m";
     }
-    
-    private String errorStyle(Object message){
+
+    public String errorStyle(Object message){
         return "\033[31m" + message + "\033[0m";
     }
-    
-    public void print_LN_ManualModeSimpleMessage(Object message){
-        if (manualMode) System.out.println(message);
+
+    public void printServerRequest(ServerRequest serverRequest) {
+        if (serverRequest.getMessage() != null) System.out.print(serverRequest.getMessage());
     }
 
-    public void printManualModeSimpleMessage(Object message){
-        if (manualMode) System.out.print(message);
+    @Override
+    public void print(Object message) {
+        System.out.print(message);
     }
 
-    public void print_LN_ScriptModeSimpleMessage(Object message){
-        if (!manualMode) System.out.println(message);
+    @Override
+    public void println(Object message) {
+        System.out.println(message);
     }
 
-    public void printScriptModeSimpleMessage(Object message){
-        if (!manualMode) System.out.print(message);
+    public void printManualMode(Object message){
+        if (manualMode) print(message);
     }
 
-    public void print_LN_ManualModeHighlightedMessage(Object message){
-        print_LN_ManualModeSimpleMessage(highlightedStyle(message));
+    public void printLnManualMode(Object message){
+        if (manualMode) println(message);
     }
 
-    public void printManualModeHighlightedMessage(Object message){
-        printManualModeSimpleMessage(highlightedStyle(message));
+    public void printScriptMode(Object message){
+        if (!manualMode) print(message);
     }
 
-    public void print_LN_ScriptModeHighlightedMessage(Object message){
-        print_LN_ScriptModeSimpleMessage(highlightedStyle(message));
-    }
-
-    public void printScriptModeHighlightedMessage(Object message){
-        printScriptModeSimpleMessage(highlightedStyle(message));
-    }
-
-    public void print_LN_ManualModeError(Object message){
-        print_LN_ManualModeSimpleMessage(errorStyle(message));
-    }
-
-    public void printManualModeError(Object message){
-        printManualModeSimpleMessage(errorStyle(message));
-    }
-
-    public void print_LN_ScriptModeError(Object message){
-        print_LN_ScriptModeSimpleMessage(errorStyle(message));
-    }
-
-    public void printScriptModeError(Object message){
-        printScriptModeSimpleMessage(errorStyle(message));
+    public void printLnScriptMode(Object message){
+        if (!manualMode) println(message);
     }
 
     public void setManualMode() {
@@ -86,9 +81,5 @@ public class ClientOutputManager {
 
     public boolean isScriptMode(){
         return !manualMode;
-    }
-
-    public void printServerRequest(ServerRequest serverRequest) {
-        System.out.print(serverRequest.getMessage());
     }
 }

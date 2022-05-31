@@ -1,3 +1,4 @@
 Manifest-Version: 1.0
-Main-Class: lab6.Client
+Main-Class: lab6.Server
+
 

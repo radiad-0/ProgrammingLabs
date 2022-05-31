@@ -20,14 +20,14 @@ public class Update extends Command {
     @Override
     public void execute() throws MyException, StopSignal {
         int id;
-        String[] arguments = commandParameters.getArguments();
+        String[] arguments = clientRequest.getArguments();
         try {
             id = Integer.parseInt(arguments[0]);
         } catch (NumberFormatException e) {
             throw new MyException("\"" + arguments[0] + "\"", "не является числом типа int");
         }
         boolean updated = false;
-        MusicBand newMusicBand = commandParameters.getElement();
+        MusicBand newMusicBand = clientRequest.getElement();
         for (MusicBand musicBand:musicBands){
             if (musicBand.getId() == id){
                 musicBand.setName(newMusicBand.getName());

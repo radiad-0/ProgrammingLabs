@@ -7,26 +7,102 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.util.Iterator;
 
 /**
  * Класс, отправляющий сериализованные данные через {@link DatagramChannel}
  */
 public class UDPConnection {
     private DatagramChannel datagramChannel;
+    private SocketAddress lastReceivedAddress;
+    private SocketAddress lastSendAddress;
     private int port;
-    private SocketAddress address;
+    private ByteBuffer lastSendBuffer;
+    private OutputManager outputManager;
 
     /**
      * Конструктор, открывает {@link #datagramChannel}
      * @param port порт
      * @throws InvalidConnectException ошибка соединения
      */
+    public UDPConnection(int port, OutputManager outputManager) throws InvalidConnectException {
+        this.port = port;
+        this.outputManager = outputManager;
+        try {
+            datagramChannel = DatagramChannel.open();
+            datagramChannel.configureBlocking(false);
+        } catch (IOException e) {
+            throw new InvalidConnectException("не удалось открыть UPD канал");
+        }
+    }
+
+    /**
+     * Конструктор, открывает {@link #datagramChannel}
+     * @throws InvalidConnectException ошибка соединения
+     */
+    public UDPConnection(OutputManager outputManager) throws InvalidConnectException {
+        this.outputManager = outputManager;
+        try {
+            datagramChannel = DatagramChannel.open();
+            datagramChannel.configureBlocking(false);
+        } catch (IOException e) {
+            throw new InvalidConnectException("не удалось открыть UPD канал");
+        }
+    }
+
     public UDPConnection(int port) throws InvalidConnectException {
         this.port = port;
         try {
             datagramChannel = DatagramChannel.open();
+            datagramChannel.configureBlocking(false);
         } catch (IOException e) {
             throw new InvalidConnectException("не удалось открыть UPD канал");
+        }
+    }
+
+    public UDPConnection() throws InvalidConnectException {
+        try {
+            datagramChannel = DatagramChannel.open();
+            datagramChannel.configureBlocking(false);
+        } catch (IOException e) {
+            throw new InvalidConnectException("не удалось открыть UPD канал");
+        }
+    }
+
+    public byte[] receiveData(ByteBuffer buffer) throws InvalidConnectException {
+        int counter = 0;
+        String message = "ждем подключения";
+        try {
+            Selector selector = Selector.open();
+
+            datagramChannel.register(selector, datagramChannel.validOps());
+
+            while(true) {
+                selector.select();
+                Iterator<SelectionKey> it = selector.selectedKeys().iterator();
+                SelectionKey sk = it.next();
+                if (sk.isReadable()) {
+                    if (".".equals(message)) outputManager.println(" связь установлена");
+                    lastReceivedAddress = datagramChannel.receive(buffer);
+                }
+                else {
+                    try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                    counter++;
+                    if (outputManager != null && counter % 50 == 0) {
+                        outputManager.print(message);
+                        message = ".";
+                    }
+                    sendData(lastSendBuffer, lastSendAddress);
+                    continue;
+                }
+                it.remove();
+                return buffer.array();
+
+            }
+        } catch (IOException e){
+            throw new InvalidConnectException("не удалось получить данные");
         }
     }
 
@@ -47,13 +123,7 @@ public class UDPConnection {
      */
     public byte[] receiveData(int capacity) throws InvalidConnectException {
         ByteBuffer buffer = ByteBuffer.allocate(capacity);
-        try {
-            address = datagramChannel.receive(buffer);
-        } catch (IOException e){
-            throw new InvalidConnectException("не удалось получить данные");
-        }
-
-        return buffer.array();
+        return receiveData(buffer);
     }
 
     /**
@@ -64,13 +134,7 @@ public class UDPConnection {
      */
     public byte[] receiveData(byte[] receiveBytes) throws InvalidConnectException {
         ByteBuffer buffer = ByteBuffer.wrap(receiveBytes);
-        try {
-            address = datagramChannel.receive(buffer);
-        } catch (IOException e){
-            throw new InvalidConnectException("не удалось получить данные");
-        }
-
-        return receiveBytes;
+        return receiveData(buffer);
     }
 
     /**
@@ -79,7 +143,7 @@ public class UDPConnection {
      * @throws InvalidConnectException ошибка соединения
      */
     public void sendData(byte[] bytesToSend) throws InvalidConnectException {
-        sendData(bytesToSend, address);
+        sendData(bytesToSend, lastReceivedAddress);
     }
 
     /**
@@ -90,6 +154,19 @@ public class UDPConnection {
      */
     public void sendData(byte[] bytesToSend, SocketAddress addressToSend) throws InvalidConnectException {
         ByteBuffer bufferToSend = ByteBuffer.wrap(bytesToSend);
+        sendData(bufferToSend, addressToSend);
+    }
+
+    /**
+     * Отправляет массив байтов по адресу
+     * @param bufferToSend буфер
+     * @param addressToSend адрес
+     * @throws InvalidConnectException ошибка соединения
+     */
+    public void sendData(ByteBuffer bufferToSend, SocketAddress addressToSend) throws InvalidConnectException {
+        lastSendBuffer = bufferToSend;
+        lastSendAddress = addressToSend;
+        if (addressToSend == null) return;
         try {
             datagramChannel.send(bufferToSend, addressToSend);
             bufferToSend.clear();
@@ -119,4 +196,11 @@ public class UDPConnection {
         }
     }
 
+    public SocketAddress getLastReceivedAddress() {
+        return lastReceivedAddress;
+    }
+
+    public void setOutputManager(OutputManager outputManager) {
+        this.outputManager = outputManager;
+    }
 }

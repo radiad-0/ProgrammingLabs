@@ -2,6 +2,7 @@ package lab6.tools;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.Objects;
 
 public class ServerRequest implements Serializable {
     /**
@@ -25,10 +26,20 @@ public class ServerRequest implements Serializable {
      */
     private boolean setScriptMode;
     private File scriptFile;
+    private final long id;
+    private static long idPointer = 0;
 
+    {
+        id = ++idPointer;
+    }
 
     public ServerRequest() {
-        setDefaultValues();
+        message = null;
+        stopSignal = false;
+        needElement = false;
+        setManualMode = false;
+        setScriptMode = false;
+        scriptFile = null;
     }
 
     public ServerRequest(String message, boolean stopSignal, boolean needElement) {
@@ -39,13 +50,8 @@ public class ServerRequest implements Serializable {
         setScriptMode = false;
     }
 
-    public void setDefaultValues(){
-        message = null;
-        stopSignal = false;
-        needElement = false;
-        setManualMode = false;
-        setScriptMode = false;
-        scriptFile = null;
+    public long getId() {
+        return id;
     }
 
     public String getMessage() {
@@ -97,6 +103,19 @@ public class ServerRequest implements Serializable {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ServerRequest that = (ServerRequest) o;
+        return stopSignal == that.stopSignal && needElement == that.needElement && setManualMode == that.setManualMode && setScriptMode == that.setScriptMode && id == that.id && Objects.equals(message, that.message) && Objects.equals(scriptFile, that.scriptFile);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(message, stopSignal, needElement, setManualMode, setScriptMode, scriptFile, id);
+    }
+
+    @Override
     public String toString() {
         return "ServerRequest{" +
                 "message='" + message + '\'' +
@@ -105,6 +124,7 @@ public class ServerRequest implements Serializable {
                 ", setManualMode=" + setManualMode +
                 ", setScriptMode=" + setScriptMode +
                 ", scriptFile=" + scriptFile +
+                ", id=" + id +
                 '}';
     }
 }

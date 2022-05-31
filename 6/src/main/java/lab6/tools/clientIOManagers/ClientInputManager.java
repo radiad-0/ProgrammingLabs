@@ -1,7 +1,6 @@
 package lab6.tools.clientIOManagers;
 
-import lab6.tools.StopSignal;
-import lab6.tools.CommandParameters;
+import lab6.tools.*;
 import lab6.excepcions.*;
 import lab6.items.Album;
 import lab6.items.Coordinates;
@@ -15,48 +14,53 @@ import java.util.*;
  */
 public class ClientInputManager {
     private ClientOutputManager outputManager;
+    private UDPConnection udpConnection;
+    private ServerRequest lastRequest;
     private Scanner scanner;
 
-    public ClientInputManager(ClientOutputManager outputManager, Scanner scanner) {
+    public ClientInputManager(ClientOutputManager outputManager, UDPConnection udpConnection, Scanner scanner) {
         this.outputManager = outputManager;
+        this.udpConnection = udpConnection;
         this.scanner = scanner;
     }
 
     /**
-     * @return объект {@link CommandParameters}
+     * Читает команду в массив строк, в котором первый элемент - имя команды, остальные - аргументы команды
+     * @return объект {@link ClientRequest}
      * @throws StopSignal Конец ввода
      * @throws InvalidCommandException Введена пустая строка
      */
-    public CommandParameters getCommandParameters() throws StopSignal, InvalidCommandException {
-        String[] commandAndArguments = getCommandAndArguments();
+    public ClientRequest getCommandParameters() throws StopSignal, InvalidCommandException {
+        String[] commandAndArguments;
+        String commandName;
 
-        String commandName = commandAndArguments[0];
-        String[] arguments = Arrays.copyOfRange(commandAndArguments, 1, commandAndArguments.length);
-
-        return new CommandParameters(commandName, arguments);
-    }
-
-    /**
-     * Читает команду
-     * @return массив строк, в котором первый элемент - имя команды, остальные - аргументы команды
-     * @throws StopSignal Конец ввода
-     * @throws InvalidCommandException Введена пустая строка
-     */
-    public String[] getCommandAndArguments() throws StopSignal, InvalidCommandException {
-        while (true) try {
-            outputManager.printManualModeHighlightedMessage("Lab6$ ");
+        try {
+            outputManager.printManualMode(outputManager.highlightedStyle("Lab6$ "));
 
             String command = getLine();
-            String[] commandAndArguments = command.split("\\s");
+            commandAndArguments = command.split("\\s");
 
             if (commandAndArguments.length == 0) throw new InvalidCommandException(command);
-            command = commandAndArguments[0];
-            outputManager.print_LN_ScriptModeHighlightedMessage(command + ":");
-
-            return commandAndArguments;
+            commandName = commandAndArguments[0];
+            outputManager.printLnScriptMode(outputManager.highlightedStyle(commandName + ":"));
         } catch (NoSuchElementException e) {
             throw new StopSignal("EOF");
         }
+
+        String[] arguments = Arrays.copyOfRange(commandAndArguments, 1, commandAndArguments.length);
+
+        return new ClientRequest(commandName, arguments);
+    }
+
+    public ServerRequest getServerRequest() throws MyException {
+        ServerRequest serverRequest = (ServerRequest) Serializer.deserialize(udpConnection.receiveData());
+
+        if (serverRequest == null || serverRequest.equals(lastRequest)) {
+            return getServerRequest();
+        }
+        lastRequest = serverRequest;
+        outputManager.printServerRequest(serverRequest);
+        return serverRequest;
     }
 
     /**
@@ -87,7 +91,7 @@ public class ClientInputManager {
             int_ = Integer.parseInt(argument);
             break;
         } catch (NumberFormatException e) {
-            outputManager.printManualModeError("\"" + argument + "\" не является числом типа int,\nвведите число заново: ");
+            outputManager.printManualMode(outputManager.errorStyle("\"" + argument + "\" не является числом типа int,\nвведите число заново: "));
         }
         return int_;
     }
@@ -106,7 +110,7 @@ public class ClientInputManager {
             break;
         }
         catch (NumberFormatException e){
-            outputManager.printManualModeError("\"" + argument + "\" не является числом типа lond,\nвведите число заново: ");
+            outputManager.printManualMode(outputManager.errorStyle("\"" + argument + "\" не является числом типа lond,\nвведите число заново: "));
         }
         return long_;
     }
@@ -125,7 +129,7 @@ public class ClientInputManager {
             break;
         }
         catch (NumberFormatException e){
-            outputManager.printManualModeError("\"" + argument + "\" не является числом типа double,\nвведите число заново: ");
+            outputManager.printManualMode(outputManager.errorStyle("\"" + argument + "\" не является числом типа double,\nвведите число заново: "));
         }
         return double_;
     }
@@ -137,13 +141,14 @@ public class ClientInputManager {
     public MusicGenre getMusicGenre() throws StopSignal {
         MusicGenre musicGenre = null;
         String argument = "";
-        outputManager.printManualModeHighlightedMessage("выберете один из жанров - " + Arrays.toString(MusicGenre.values()) + "\ngenre: ");
+        outputManager.printManualMode(outputManager.highlightedStyle("выберете один из жанров - " +
+                Arrays.toString(MusicGenre.values()) + "\ngenre: "));
         while (true) try {
             argument = getLine();
             musicGenre = MusicGenre.valueOf(argument);
             break;
         } catch (IllegalArgumentException e) {
-            outputManager.printManualModeError("\"" + argument + "\" не является жанром,\nвведите жанр заново: ");
+            outputManager.printManualMode(outputManager.errorStyle("\"" + argument + "\" не является жанром,\nвведите жанр заново: "));
         }
         return musicGenre;
     }
@@ -153,10 +158,10 @@ public class ClientInputManager {
      * @throws StopSignal Конец ввода
      */
     public Coordinates getCoordinates() throws StopSignal {
-        outputManager.printManualModeHighlightedMessage("coordinates:\n\tint x: ");
+        outputManager.printManualMode(outputManager.highlightedStyle("coordinates:\n\tint x: "));
         int x = getInt();
 
-        outputManager.printManualModeHighlightedMessage("\tdouble y: ");
+        outputManager.printManualMode(outputManager.highlightedStyle("\tdouble y: "));
         double y = getDouble();
 
         return new Coordinates(x, y);
@@ -168,16 +173,16 @@ public class ClientInputManager {
      */
     public Album getAlbum() throws StopSignal {
         while (true) try {
-            outputManager.printManualModeHighlightedMessage("bestAlbum:\n\tString name(не null, не \"\"): ");
+            outputManager.printManualMode(outputManager.highlightedStyle("bestAlbum:\n\tString name(не null, не \"\"): "));
             String bestAlbumName = getLine();
 
-            outputManager.printManualModeHighlightedMessage("\tint length(должно быть > 0): ");
+            outputManager.printManualMode(outputManager.highlightedStyle("\tint length(должно быть > 0): "));
             int length = getInt();
 
             return new Album(bestAlbumName, length);
         } catch (MyException e) {
-            outputManager.print_LN_ManualModeError(e.getMessage());
-            outputManager.print_LN_ManualModeHighlightedMessage("попытайтесь еще раз сначала, читайте подсказки в скобках");
+            outputManager.printLnManualMode(outputManager.errorStyle(e.getMessage()));
+            outputManager.printLnManualMode(outputManager.highlightedStyle("попытайтесь еще раз сначала, читайте подсказки в скобках"));
         }
     }
 
@@ -188,12 +193,12 @@ public class ClientInputManager {
      */
     public MusicBand getMusicBand() throws StopSignal {
         while (true) try {
-            outputManager.printManualModeHighlightedMessage("String name(не null, не \"\"): ");
+            outputManager.printManualMode(outputManager.highlightedStyle("String name(не null, не \"\"): "));
             String name = getLine();
 
             Coordinates coordinates = getCoordinates();
 
-            outputManager.printManualModeHighlightedMessage("long numberOfParticipants(должно быть > 0): ");
+            outputManager.printManualMode(outputManager.highlightedStyle("long numberOfParticipants(должно быть > 0): "));
             long numberOfParticipants = getLong();
 
             MusicGenre genre = getMusicGenre();
@@ -202,8 +207,8 @@ public class ClientInputManager {
 
             return new MusicBand(name, coordinates, numberOfParticipants, genre, bestAlbum);
         } catch (MyException e) {
-            outputManager.print_LN_ManualModeError(e.getMessage());
-            outputManager.print_LN_ManualModeHighlightedMessage("попытайтесь еще раз сначала, читайте подсказки в скобках");
+            outputManager.printLnManualMode(outputManager.errorStyle(e.getMessage()));
+            outputManager.printLnManualMode(outputManager.highlightedStyle("попытайтесь еще раз сначала, читайте подсказки в скобках"));
         }
     }
 

@@ -1,9 +1,13 @@
 package lab6.commands;
 
+import lab6.excepcions.InvalidArgumentException;
+import lab6.excepcions.InvalidCommandException;
 import lab6.excepcions.MyException;
-import lab6.tools.CommandParameters;
+import lab6.tools.ClientRequest;
 import lab6.tools.StopSignal;
 import lab6.tools.serverIOManagers.ServerOutputManager;
+
+import java.util.HashMap;
 
 public abstract class Command {
     /**
@@ -27,9 +31,9 @@ public abstract class Command {
     private final boolean needElementAsArgument;
 
     /**
-     * Параметры команды {@link CommandParameters}
+     * Параметры команды {@link ClientRequest}
      */
-    protected CommandParameters commandParameters;
+    protected ClientRequest clientRequest;
     protected ServerOutputManager outputManager;
 
     public Command(String name, String description, int numberOfArguments, boolean needElementAsArgument, ServerOutputManager outputManager) {
@@ -42,8 +46,8 @@ public abstract class Command {
 
     public abstract void execute() throws MyException, StopSignal;
 
-    public void setParameters(CommandParameters commandParameters){
-        this.commandParameters = commandParameters;
+    public void setParameters(ClientRequest clientRequest){
+        this.clientRequest = clientRequest;
     }
 
     public String getName() {
@@ -61,6 +65,7 @@ public abstract class Command {
     public boolean isNeedElementAsArgument() {
         return needElementAsArgument;
     }
+
 
     @Override
     public String toString() {

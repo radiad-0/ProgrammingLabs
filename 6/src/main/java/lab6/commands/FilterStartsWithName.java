@@ -17,7 +17,7 @@ public class FilterStartsWithName extends Command {
 
     @Override
     public void execute() throws MyException {
-        String argument = commandParameters.getArguments()[0];
+        String argument = clientRequest.getArguments()[0];
         musicBands.stream().filter(musicBand -> musicBand.getName().startsWith(argument))
                 .collect(Collectors.toList()).forEach(outputManager::writelnToBuffer);
         outputManager.sendServerRequestToClient();

@@ -1,6 +1,7 @@
 package lab6;
 
-import lab6.tools.CommandParameters;
+import lab6.excepcions.InvalidConnectException;
+import lab6.tools.ClientRequest;
 import lab6.excepcions.MyException;
 import lab6.tools.Serializer;
 import lab6.tools.ServerRequest;
@@ -8,6 +9,7 @@ import lab6.tools.StopSignal;
 import lab6.tools.clientIOManagers.ClientInputManager;
 import lab6.tools.clientIOManagers.ClientOutputManager;
 import lab6.tools.UDPConnection;
+import lab6.tools.clientIOManagers.ShutdownHook;
 
 import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
@@ -15,33 +17,38 @@ import java.net.SocketAddress;
 import java.util.Scanner;
 
 public class Client {
-    private static final int port = 3468;
     private ClientOutputManager outputManager;
     private ClientInputManager inputManager;
     UDPConnection udpConnection;
     SocketAddress serverAddress;
+    private static final int port = 3468;
     private boolean inRun;
+    private ServerRequest lastRequest;
 
     /**
      * Запускает клиентское приложение
      * @param args аргументы командной строки
      */
     public static void main(String[] args) {
-        Client lab6 = new Client();
+        Client lab6 = null;
         try {
+            lab6 = new Client();
             lab6.run();
         } catch (MyException e) {
-            lab6.outputManager.print_LN_ManualModeError(e.getMessage());
+            lab6.outputManager.printLnManualMode(lab6.outputManager.errorStyle(e.getMessage()));
         }
     }
 
-    private Client(){
-        outputManager = new ClientOutputManager();
-        inputManager = new ClientInputManager(outputManager, new Scanner(System.in));
+    private Client() throws InvalidConnectException {
+        udpConnection = new UDPConnection();
         serverAddress = new InetSocketAddress("localhost", port);
+        outputManager = new ClientOutputManager(udpConnection, serverAddress);
+        udpConnection.setOutputManager(outputManager);
+        inputManager = new ClientInputManager(outputManager, udpConnection, new Scanner(System.in));
 
         inRun = true;
-        outputManager.print_LN_ManualModeHighlightedMessage("Программа начала работу!\nПо команде help можно получить список доступных комманд.");
+        outputManager.printLnManualMode(outputManager.highlightedStyle("Программа начала работу!\n" +
+                "По команде help можно получить список доступных комманд."));
     }
 
     /**
@@ -50,32 +57,32 @@ public class Client {
      */
     public void run() throws MyException {
 
-        CommandParameters commandParameters;
-        udpConnection = new UDPConnection(port);
+        ShutdownHook shutdownHook = new ShutdownHook(udpConnection, outputManager, serverAddress);
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+        ClientRequest clientRequest;
 
         while (inRun) {
             try {
-                commandParameters = inputManager.getCommandParameters();
-                udpConnection.sendData(Serializer.serialize(commandParameters), serverAddress);
+                clientRequest = inputManager.getCommandParameters();
+                outputManager.sendClientRequest(clientRequest);
 
                 processingRequest();
             } catch (MyException e) {
-                outputManager.print_LN_ManualModeError(e.getMessage());
+                outputManager.printLnManualMode(outputManager.errorStyle(e.getMessage()));
             } catch (StopSignal e){
-                outputManager.print_LN_ManualModeHighlightedMessage("программа завершена");
-                outputManager.print_LN_ScriptModeHighlightedMessage("script completed");
+                outputManager.printLnScriptMode(outputManager.highlightedStyle("script completed"));
                 if (isScriptMode()) {
-                    udpConnection.sendData(Serializer.serialize(new CommandParameters("exit", "endOfScript")), serverAddress);
+                    outputManager.sendClientRequest(new ClientRequest("exit", "endOfScript"));
                     setManualMode();
                     continue;
                 }
 
-                if ("EOF".equals(e.getMessage())) {
-                    udpConnection.sendData(Serializer.serialize(new CommandParameters("exit", "EOF")), serverAddress);
-                }
+                if (!"exit".equals(e.getMessage())) outputManager.sendClientRequest(new ClientRequest("exit", e.getMessage()));
 
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 inRun = false;
                 inputManager.closeScanner();
+                outputManager.println(outputManager.highlightedStyle("программа завершена"));
             }
         }
     }
@@ -86,13 +93,12 @@ public class Client {
      * @throws StopSignal Сигнал, завершающий клиентское приложение
      */
     private void processingRequest() throws MyException, StopSignal {
-        ServerRequest serverRequest = (ServerRequest) Serializer.deserialize(udpConnection.receiveData());
+        ServerRequest serverRequest = inputManager.getServerRequest();
 
-        if (serverRequest == null) return;
-        outputManager.printServerRequest(serverRequest);
         if (serverRequest.isStopSignal()) throw new StopSignal("exit");
         if (serverRequest.isNeedElement()){
-            udpConnection.sendData(Serializer.serialize(inputManager.getMusicBand()), serverAddress);
+            ClientRequest clientRequest = new ClientRequest(null, inputManager.getMusicBand());
+            outputManager.sendClientRequest(clientRequest);
             processingRequest();
         }
         if (serverRequest.isSetManualMode()) setManualMode();
@@ -101,8 +107,8 @@ public class Client {
                 setScriptMode(new Scanner(serverRequest.getScriptFile()));
             } catch (FileNotFoundException e) {
                 setManualMode();
-                udpConnection.sendData(Serializer.serialize(new CommandParameters("exit", "endOfScript")), serverAddress);
-                throw new MyException("Файл с таким именем не найден", "попробуйте еще раз");
+                outputManager.sendClientRequest(new ClientRequest("exit", "endOfScript"));
+                throw new MyException("Проблемы с файлом", e.getMessage());
             }
         }
     }

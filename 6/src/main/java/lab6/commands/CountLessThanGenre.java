@@ -18,7 +18,7 @@ public class CountLessThanGenre extends Command {
     @Override
     public void execute() throws MyException {
         MusicGenre genre;
-        String argument = commandParameters.getArguments()[0];
+        String argument = clientRequest.getArguments()[0];
         try {
             genre = MusicGenre.valueOf(argument);
         } catch (IllegalArgumentException e) {

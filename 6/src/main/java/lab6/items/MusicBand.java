@@ -64,7 +64,7 @@ public class MusicBand implements Comparable<MusicBand>, Serializable {
         if (genre == null) throw new NullException("genre");
         if (bestAlbum == null) throw new NullException("bestAlbum");
 
-        if (bufferIds.size() == 0) id = ++MusicBand.idPointer;
+        if (bufferIds.size() == 0) id = ++idPointer;
         else id = bufferIds.stream().min(Integer::compareTo).get();
         this.name = name;
         this.coordinates = coordinates;

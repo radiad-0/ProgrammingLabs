@@ -22,7 +22,7 @@ public class ExecuteScript extends Command {
 
     @Override
     public void execute() throws MyException {
-        String argument = commandParameters.getArguments()[0];
+        String argument = clientRequest.getArguments()[0];
         File file = new File(argument);
         inRun = true;
         if (scriptsFileNames.contains(file)){

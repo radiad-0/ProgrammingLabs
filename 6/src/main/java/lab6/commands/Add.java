@@ -17,7 +17,7 @@ public class Add extends Command {
 
     @Override
     public void execute() throws StopSignal, MyException {
-        musicBands.add(commandParameters.getElement());
+        musicBands.add(clientRequest.getElement());
         outputManager.noAnswer();
     }
 }

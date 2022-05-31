@@ -1,6 +1,7 @@
 package lab6.tools.serverIOManagers;
 
 import lab6.excepcions.MyException;
+import lab6.tools.OutputManager;
 import lab6.tools.ServerRequest;
 import lab6.tools.UDPConnection;
 import lab6.tools.Serializer;
@@ -8,14 +9,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
+import java.net.SocketAddress;
 
 /**
  * Класс, формирующий и отправляющий сообщения и сигналы клиентскому приложению
  * <br>так же записывает сообщения в лог
  */
-public class ServerOutputManager {
+public class ServerOutputManager implements OutputManager {
     private static final Logger log4j2 = LogManager.getLogger();
     private UDPConnection udpConnection;
+    private SocketAddress addressToSend;
+    private boolean sendToLastAddress;
     /**
      * Запрос {@link ServerRequest} клиенту
      */
@@ -29,10 +33,13 @@ public class ServerOutputManager {
      */
     private boolean bufferMarker;
 
+
+
     {
         buffer = "";
         bufferMarker = false;
         serverRequest = new ServerRequest();
+        sendToLastAddress = true;
     }
 
     public ServerOutputManager(UDPConnection udpConnection) {
@@ -50,10 +57,14 @@ public class ServerOutputManager {
     public void sendServerRequestToClient() throws MyException {
         serverRequest.setMessage(buffer);
         log4j2.debug(serverRequest);
-        udpConnection.sendData(Serializer.serialize(serverRequest));
+        if (sendToLastAddress) udpConnection.sendData(Serializer.serialize(serverRequest));
+        else {
+            udpConnection.sendData(Serializer.serialize(new ServerRequest()), addressToSend);
+            sendToLastAddress = true;
+        }
         buffer = "";
         bufferMarker = false;
-        serverRequest.setDefaultValues();
+        serverRequest = new ServerRequest();
     }
 
     /**
@@ -112,7 +123,11 @@ public class ServerOutputManager {
      * @throws MyException ошибка сериализация {@link Serializer#serialize(Object)} или соединения {@link UDPConnection#sendData(byte[])}
      */
     public void noAnswer() throws MyException {
-        udpConnection.sendData(Serializer.serialize(null));
+        if (sendToLastAddress) udpConnection.sendData(Serializer.serialize(new ServerRequest()));
+        else {
+            udpConnection.sendData(Serializer.serialize(new ServerRequest()), addressToSend);
+            sendToLastAddress = true;
+        }
     }
 
     /**
@@ -138,4 +153,15 @@ public class ServerOutputManager {
         }
         buffer += message;
     }
+
+    public void setAddressToSend(SocketAddress addressToSend) {
+        this.addressToSend = addressToSend;
+        sendToLastAddress = false;
+    }
+
+    @Override
+    public void print(Object message) {}
+
+    @Override
+    public void println(Object message) {}
 }

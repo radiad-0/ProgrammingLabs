@@ -16,8 +16,8 @@ public class Exit extends Command {
     @Override
     public void execute() throws StopSignal, InvalidArgumentException {
         String signal = null;
-        if (commandParameters.getArguments().length > 1) throw new InvalidArgumentException();
-        if (commandParameters.getArguments().length > 0) signal = commandParameters.getArguments()[0];
+        if (clientRequest.getArguments().length > 1) throw new InvalidArgumentException();
+        if (clientRequest.getArguments().length > 0) signal = clientRequest.getArguments()[0];
         if (!availableSignal.contains(signal)) throw new InvalidArgumentException();
         throw new StopSignal(signal);
     }

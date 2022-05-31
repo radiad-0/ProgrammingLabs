@@ -19,7 +19,7 @@ public class RemoveById extends Command {
     @Override
     public void execute() throws MyException {
         int id;
-        String[] arguments = commandParameters.getArguments();
+        String[] arguments = clientRequest.getArguments();
         try {
             id = Integer.parseInt(arguments[0]);
         } catch (NumberFormatException e) {
